@@ -1,0 +1,1534 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>SFO 12</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#1073b4">
+    <meta name="description" content="Cisco Spaces indoor map tracking application">
+    
+    <!-- Preload critical resources for better performance -->
+    <link rel="preload" href="https://maps.ciscospaces.io/js/spaces-rich-maps-2.0-beta.min.js" as="script">
+    <link rel="preload" href="Spaces_S.png" as="image">
+    
+    <!-- Add icon for home screen -->
+    <link rel="icon" href="Spaces_S.png">
+    <link rel="apple-touch-icon" href="Spaces_S.png">
+    
+    <!-- External resources -->
+    <script src="https://maps.ciscospaces.io/js/spaces-rich-maps-2.0-beta.min.js"></script>
+    <link rel="stylesheet" href="https://maps.ciscospaces.io/css/maplibre-gl.css" id="maplibre-gl">
+    <script src="https://maps.ciscospaces.io/js/maplibre-gl.js"></script>
+    <link rel="stylesheet" href="https://maps.ciscospaces.io/css/v2/main.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <style>
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%;
+            font-family: 'Roboto', sans-serif;
+            overscroll-behavior: none;
+            touch-action: manipulation;
+            -webkit-overflow-scrolling: touch;
+            position: fixed; /* Prevent Safari bounce effect */
+            overflow: hidden;
+        }
+        
+        /* Data source switcher */
+        .data-source-container {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10000;
+            display: flex;
+            flex-direction: row;
+            gap: 5px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 8px 12px;
+            border-radius: 30px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(4px);
+            pointer-events: auto;
+        }
+        
+        .data-source-button {
+            padding: 6px 12px;
+            background-color: #f0f0f0;
+            border: none;
+            border-radius: 16px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: #444;
+            font-weight: 500;
+            pointer-events: auto;
+        }
+        
+        .data-source-button.active {
+            background-color: #1073b4;
+            color: white;
+        }
+
+        .mac-label-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10000;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(4px);
+        }
+
+        .mac-label-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            color: #444;
+            font-weight: 500;
+        }
+
+        .mac-label-toggle input[type="checkbox"] {
+            cursor: pointer;
+        }
+
+        .button-container {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            display: flex;
+            gap: 10px;
+            z-index: 10;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .button-container button {
+            padding: 8px 12px;
+            border: none;
+            background-color: #1073b4;
+            color: white;
+            cursor: pointer;
+            border-radius: 5px;
+            font-size: 14px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+            user-select: none;
+            min-height: 44px; /* Minimum touch target size */
+            transition: background-color 0.2s ease;
+        }
+
+        .button-container button:active {
+            background-color: #0056b3;
+            transform: translateY(1px);
+        }
+
+        #loader {
+            border: 12px solid rgba(128, 128, 128, 0.3);
+            border-radius: 50%;
+            border-top: 12px solid #00bceb;
+            width: 60px;
+            height: 60px;
+            animation: spin 1s linear infinite;
+            z-index: 50;
+            backdrop-filter: blur(3px);
+        }
+
+        @keyframes spin {
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .center {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            margin: auto;
+        }
+
+        .logo-container {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            z-index: 10;
+            background-color: rgba(255, 255, 255, 0.8);
+            border-radius: 5px;
+            padding: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            pointer-events: none;
+            backdrop-filter: blur(2px);
+        }
+
+        .logo-container img {
+            height: 32px;
+            width: auto;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+            touch-action: pan-x pan-y;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        /* Overlay for the loading state */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255, 255, 255, 0.7);
+            z-index: 40;
+            display: none;
+        }
+        
+        /* Floor selector styles */
+        .floor-selector {
+            position: fixed; /* Changed from absolute to fixed */
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3); /* Increased shadow */
+            padding: 10px 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 1000; /* Increased z-index to ensure visibility */
+            backdrop-filter: blur(4px);
+            transition: opacity 0.3s ease;
+            border: 1px solid rgba(0, 0, 0, 0.1); /* Added border */
+        }
+        
+        .floor-selector-button {
+            width: 45px;
+            height: 45px;
+            border: none;
+            background-color: #f5f5f5;
+            color: #333;
+            font-weight: bold;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            position: relative;
+        }
+        
+        .floor-selector-button:hover {
+            background-color: #e0e0e0;
+            transform: translateY(-2px);
+            box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+        }
+        
+        .floor-selector-button:active {
+            transform: translateY(0);
+        }
+        
+        .floor-selector-button.active {
+            background-color: #1073b4;
+            color: white;
+            box-shadow: 0 2px 5px rgba(16, 115, 180, 0.4);
+        }
+        
+        .floor-selector-button.active::after {
+            content: '';
+            position: absolute;
+            right: -10px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 0;
+            height: 0;
+            border-top: 6px solid transparent;
+            border-left: 8px solid #1073b4;
+            border-bottom: 6px solid transparent;
+        }
+        
+        .floor-selector-label {
+            text-align: center;
+            font-size: 11px;
+            color: #333;
+            font-weight: bold;
+            letter-spacing: 1px;
+            padding: 4px 0;
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+        }
+        
+        /* Floor selector collapse/expand button */
+        .floor-selector-toggle {
+            position: fixed; /* Changed from absolute to fixed */
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 40px; /* Increased size */
+            height: 40px; /* Increased size */
+            background-color: #1073b4;
+            border-radius: 50%;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.3); /* Enhanced shadow */
+            z-index: 999; /* Just below the selector */
+            border: none;
+            font-size: 18px; /* Increased font size */
+            font-weight: bold;
+            transition: all 0.2s ease;
+            display: none; /* Hidden by default, shown on mobile */
+        }
+        
+        .floor-selector-toggle:hover {
+            background-color: #0d5c8a;
+        }
+        
+        /* Mobile-specific floor selector */
+        @media (max-width: 768px) {
+            .floor-selector {
+                right: 15px;
+                padding: 8px 6px;
+                box-shadow: 0 2px 15px rgba(0,0,0,0.2);
+            }
+            
+            .floor-selector-button {
+                width: 38px;
+                height: 38px;
+                font-size: 14px;
+            }
+            
+            .floor-selector.collapsed {
+                display: none;
+            }
+            
+            .floor-selector-toggle {
+                display: flex;
+            }
+            
+            .floor-selector-button.active::after {
+                right: -8px;
+                border-top: 5px solid transparent;
+                border-left: 6px solid #1073b4;
+                border-bottom: 5px solid transparent;
+            }
+        }
+        
+        /* Ensure floor selector is always visible */
+        #fallback-floor-selector {
+            z-index: 9999 !important;
+            position: fixed !important;
+            background-color: white !important;
+            display: flex !important;
+            flex-direction: column !important;
+            right: 20px !important;
+            top: 50% !important;
+            transform: translateY(-50%) !important;
+        }
+
+        /* Mobile-specific optimizations */
+        @media (max-width: 480px) {
+            .logo-container {
+                padding: 6px;
+                top: 10px;
+                left: 10px;
+            }
+            
+            .logo-container img {
+                height: 24px;
+            }
+            
+            .button-container button {
+                padding: 8px 10px;
+                font-size: 13px;
+                min-height: 40px;
+            }
+        }
+
+        /* iPad-specific optimizations */
+        @media (min-width: 768px) and (max-width: 1024px) {
+            .logo-container {
+                padding: 10px;
+            }
+            
+            .logo-container img {
+                height: 36px;
+            }
+            
+            .button-container {
+                top: 15px;
+                right: 15px;
+            }
+        }
+
+        /* Prevent text selection */
+        * {
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+        
+        /* Fix for iOS Safari 100vh issue */
+        @supports (-webkit-touch-callout: none) {
+            body, html {
+                height: -webkit-fill-available;
+            }
+        }
+        
+        /* Disable pull-to-refresh on mobile browsers */
+        html {
+            overscroll-behavior-y: contain;
+        }
+    </style>
+</head>
+
+<body>
+<div id="map"></div>
+<div id="loader" class="center" style="visibility: hidden;"></div>
+<div class="loading-overlay"></div>
+<div class="logo-container">
+    <img src="Spaces_S.png" alt="Cisco Spaces Logo">
+</div>
+<!-- Floor selector will be added dynamically -->
+
+<!-- Data source selector -->
+<div class="data-source-container">
+    <button id="firebase-source" class="data-source-button active">Firebase</button>
+    <button id="firehose-source" class="data-source-button">Firehose API</button>
+</div>
+
+<!-- MAC label toggle -->
+<div class="mac-label-container">
+    <label class="mac-label-toggle">
+        <input type="checkbox" id="show-mac-labels">
+        <span>Log MACs to Console</span>
+    </label>
+</div>
+
+<script>
+
+    const params = new URLSearchParams(window.location.search)
+    let updateInterval = params.get("interval") || 5000
+    let activeDataSource = "firebase"; // Default data source
+    
+    // Cisco Spaces configuration
+    let spacesTenantId = "spaces-tenant-2015f20c"
+    let locationId = "location-d6ec4429"
+    let _floor = 2
+    let token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoic2Vzc2lvbl9rZXkiLCJ0ZW5hbnRfaWQiOiJzcGFjZXMtdGVuYW50LTIwMTVmMjBjIiwiYnVpbGRpbmdfaWQiOiJsb2NhdGlvbi1kNmVjNDQyOSIsImFsbG93ZWRfZG9tYWlucyI6W10sImlzX2RyYWZ0IjpmYWxzZSwiZXhwIjoxNzYzMTk4MDYwfQ.AD2R_Hro8jOM5gLyWACq0hc4Md59XYSTlLsTjlVWT0A" // Valid until Nov 15, 2025
+    let refreshToken = null // Not needed for session key authentication
+
+    // Maps API Key for regenerating session keys (keep secure!)
+    const mapsApiKey = "1f373664a2c1e4b59da74a5142c1ee97"
+    
+    // Firehose API configuration
+    const firehoseConfig = {
+        endpoint: "http://localhost:8081/firehose", // Using CORS proxy (see proxy-server.js)
+        apiKey: "9981B867E2B0456CB1F1909BD617982C", // QA environment API key
+        updateInterval: 3000, // ms (update markers every 3 seconds)
+        filterMacPrefix: null, // Only show devices with MAC starting with "fc"
+        singleDevice: false, // Show all devices matching the filter
+        eventTypes: ["IOT_TELEMETRY"], // Firehose uses IOT_TELEMETRY events for location data
+        // Custom avatars for specific MAC addresses
+        customAvatars: {
+            "fc:58:9a:1e:39:4f": "santosh-circular.png",
+            "fc:58:9a:1e:39:56": "avatar-fc589a1e394f-circular.png",
+            "fc:58:9a:1e:39:97": "dennis-circular.png"
+        }
+    };
+
+    // Show loader while map is loading
+    document.getElementById('loader').style.visibility = 'visible';
+    
+    // Check if we're on a mobile device to adjust map settings accordingly
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    
+    let richMap = new SpacesRichMap({
+        mapContainer: 'map',
+        tenantId: spacesTenantId,
+        locationId: locationId,
+        initialZoom: isMobile ? 19 : 20, // Slightly zoomed out on mobile
+        initialPos: [-122.38668892596415, 37.77055364042427],
+        initialPitch: isMobile ? 10 : 20, // Less pitch on mobile for better usability
+        minPitch: 0,
+        maxPitch: 85,
+        initialBearing: -50,
+        defaultFloor: _floor,
+        poiLegendHolder: 'poi-switch',
+        token: token,
+        hideNavigationControls: isMobile ? false : true, // Show navigation controls only on mobile
+        dragRotate: !isMobile, // Disable rotation on mobile for simplicity
+        touchZoomRotate: true, // Enable pinch zoom on mobile
+        trackUserLocation: false, // We're handling our own location tracking
+        maxBounds: [
+            [-122.39, 37.76], // Southwest coordinates
+            [-122.38, 37.78]  // Northeast coordinates
+        ], // Restrict map panning to relevant area
+    });
+
+    let lastEventTime = 0;
+
+    richMap.listen(RichMapEvent.ON_LOAD, function () {
+        // Hide loader once map is loaded
+        document.getElementById('loader').style.visibility = 'hidden';
+        
+        // Create blue dot marker for tracking
+        let blueDotMarker = createBlueDotMarker();
+        
+        // Set up data source switching
+        setupDataSourceControls(blueDotMarker);
+        
+        // Create a comprehensive floor selector
+        function createFloorSelector() {
+            // Get available floors
+            let availableFloors = [];
+            let floorNames = {};
+            try {
+                // Attempt to get available floors from the map
+                const floorInfo = richMap.getFloorInfo();
+                if (floorInfo && floorInfo.floors) {
+                    // Sort floors in descending order (higher floors first)
+                    availableFloors = floorInfo.floors
+                        .map(f => f.level)
+                        .sort((a, b) => b - a);
+                    
+                    // Get floor names if available
+                    floorInfo.floors.forEach(floor => {
+                        floorNames[floor.level] = floor.name || `Floor ${floor.level}`;
+                    });
+                }
+            } catch (error) {
+                console.warn("Could not get floor info:", error);
+                // Fallback to a reasonable range for the SFO building
+                availableFloors = [5, 4, 3, 2, 1];
+            }
+            
+            // If still no floors, use default range
+            if (availableFloors.length === 0) {
+                availableFloors = [5, 4, 3, 2, 1];
+            }
+            
+            // Get the current floor (using the defaultFloor as the API might not have getFloor method)
+            const currentFloor = _floor; // Use the configured defaultFloor
+            
+            // Create the floor selector container
+            const floorSelector = document.createElement('div');
+            floorSelector.className = 'floor-selector';
+            floorSelector.id = 'floor-selector';
+            
+            // Add floor label at the top
+            const label = document.createElement('div');
+            label.className = 'floor-selector-label';
+            label.innerText = 'FLOOR';
+            floorSelector.appendChild(label);
+            
+            // Create buttons for each floor
+            availableFloors.forEach(floor => {
+                const floorButton = document.createElement('button');
+                floorButton.className = 'floor-selector-button';
+                floorButton.dataset.floor = floor;
+                
+                // Use floor name if available, otherwise just the number
+                const floorName = floorNames[floor] || floor;
+                floorButton.innerText = floor;
+                
+                // Add tooltip with floor name on desktop
+                if (!isMobile && floorNames[floor]) {
+                    floorButton.title = floorNames[floor];
+                }
+                
+                // Mark current floor as active
+                if (floor === currentFloor) {
+                    floorButton.classList.add('active');
+                }
+                
+                // Add click event to change floor
+                floorButton.addEventListener('click', () => {
+                    try {
+                        // Ensure the floor is a valid number value
+                        const floorNum = parseInt(floor, 10);
+                        
+                        // Now we know the correct method is changeFloor
+                        if (typeof richMap.changeFloor === 'function') {
+                            // Add a small delay to prevent rapid floor changes
+                            // that might cause the rendering errors
+                            setTimeout(() => {
+                                try {
+                                    richMap.changeFloor(floorNum);
+                                } catch (e) {
+                                    // Silently catch errors to prevent console spam
+                                }
+                            }, 200);
+                        }
+                        
+                        // Update active state visually immediately
+                        document.querySelectorAll('.floor-selector-button').forEach(btn => {
+                            btn.classList.remove('active');
+                        });
+                        floorButton.classList.add('active');
+                        
+                        // Add haptic feedback on mobile
+                        if (isMobile && 'vibrate' in navigator) {
+                            navigator.vibrate(30);
+                        }
+                        
+                        // On mobile, collapse the floor selector after selection on small screens
+                        if (isMobile && window.innerWidth < 480) {
+                            setTimeout(() => {
+                                const selector = document.getElementById('floor-selector');
+                                selector.classList.add('collapsed');
+                                const toggle = document.getElementById('floor-selector-toggle');
+                                if (toggle) toggle.innerHTML = '⥥';
+                            }, 500);
+                        }
+                    } catch (error) {
+                        console.error("Error changing floor:", error);
+                    }
+                });
+                
+                floorSelector.appendChild(floorButton);
+            });
+            
+            // Add event listener to update active floor when floor changes
+            // Check if the ON_FLOOR_CHANGE event is available
+            if (typeof RichMapEvent !== 'undefined' && RichMapEvent.ON_FLOOR_CHANGE) {
+                richMap.listen(RichMapEvent.ON_FLOOR_CHANGE, function(e) {
+                    document.querySelectorAll('.floor-selector-button').forEach(btn => {
+                        if (parseInt(btn.dataset.floor) === e.floorLevel) {
+                            btn.classList.add('active');
+                        } else {
+                            btn.classList.remove('active');
+                        }
+                    });
+                });
+            } else if (typeof richMap.listen === 'function') {
+                // Try some other common event names if ON_FLOOR_CHANGE is not defined
+                try {
+                    richMap.listen('floorChange', function(e) {
+                        const floorLevel = e.floor || e.floorLevel || e.level;
+                        document.querySelectorAll('.floor-selector-button').forEach(btn => {
+                            if (parseInt(btn.dataset.floor) === floorLevel) {
+                                btn.classList.add('active');
+                            } else {
+                                btn.classList.remove('active');
+                            }
+                        });
+                    });
+                } catch (e) {
+                    console.warn('Could not add floor change listener', e);
+                }
+            }
+            
+            // For mobile devices, add a toggle button to show/hide the floor selector
+            if (isMobile) {
+                // Create a toggle button for mobile
+                const toggleButton = document.createElement('button');
+                toggleButton.className = 'floor-selector-toggle';
+                toggleButton.id = 'floor-selector-toggle';
+                toggleButton.innerHTML = '⥣'; // up/down arrow
+                toggleButton.setAttribute('aria-label', 'Toggle Floor Selector');
+                
+                // Toggle the floor selector visibility when clicked
+                toggleButton.addEventListener('click', () => {
+                    const selector = document.getElementById('floor-selector');
+                    
+                    if (selector.classList.contains('collapsed')) {
+                        // Expand the selector
+                        selector.classList.remove('collapsed');
+                        toggleButton.innerHTML = '⥣'; // up/down arrow
+                    } else {
+                        // Collapse the selector
+                        selector.classList.add('collapsed');
+                        toggleButton.innerHTML = '⥥'; // up/down arrow
+                    }
+                    
+                    // Add haptic feedback
+                    if ('vibrate' in navigator) {
+                        navigator.vibrate(30);
+                    }
+                });
+                
+                document.body.appendChild(toggleButton);
+                
+                // Initially collapse on phones, but keep expanded on tablets
+                if (window.innerWidth < 480) {
+                    floorSelector.classList.add('collapsed');
+                    toggleButton.innerHTML = '⥥';
+                }
+            }
+            
+            // Make sure the floor selector is visible
+            floorSelector.style.display = 'flex';
+            
+            // Add a visible debug message
+            console.log('Floor selector created with floors:', availableFloors);
+            
+            // Add the floor selector to the document - append to body to ensure proper z-index stacking
+            document.body.appendChild(floorSelector);
+            
+            return floorSelector;
+        }
+        
+        // Create the floor selector
+        const floorSelector = createFloorSelector();
+        
+        // Start fetching location data based on active source
+        if (activeDataSource === "firebase") {
+            fetchFirebaseStream(blueDotMarker);
+        } else {
+            fetchFirehoseStream(blueDotMarker);
+        }
+    });
+
+    function createBlueDotMarker(){
+        // Create container object to hold multiple marker layers
+        const markerLayers = {
+            default: null,
+            custom: {}
+        };
+
+        // Create default blue dot marker layer
+        const defaultMarker = richMap.addMarkerLayer("tracking-marker-default");
+        defaultMarker.setIcon("circle1.png", {
+            "pixelRatio": 2,
+            "iconSize": isMobile ? 0.7 : 1.0
+        });
+        defaultMarker.setLayout({
+            "icon-allow-overlap": true,
+            "icon-ignore-placement": true,
+            "icon-anchor": "center",
+            "icon-rotation-alignment": "map"
+        });
+        markerLayers.default = defaultMarker;
+
+        // Create custom marker layers for devices with avatars
+        Object.entries(firehoseConfig.customAvatars || {}).forEach(([mac, avatarFile]) => {
+            const customMarker = richMap.addMarkerLayer(`tracking-marker-${mac.replace(/:/g, '')}`);
+            customMarker.setIcon(avatarFile, {
+                "pixelRatio": 2,
+                "iconSize": isMobile ? 0.4 : 0.5 // Smaller, more proportional size
+            });
+            customMarker.setLayout({
+                "icon-allow-overlap": true,
+                "icon-ignore-placement": true,
+                "icon-anchor": "center",
+                "icon-rotation-alignment": "map"
+            });
+            markerLayers.custom[mac] = customMarker;
+        });
+
+        return markerLayers;
+    }
+
+    // Function to set up data source controls
+    function setupDataSourceControls(markerLayer) {
+        const firebaseButton = document.getElementById('firebase-source');
+        const firehoseButton = document.getElementById('firehose-source');
+
+        // Set up MAC label toggle listener
+        const macLabelCheckbox = document.getElementById('show-mac-labels');
+        if (macLabelCheckbox) {
+            macLabelCheckbox.addEventListener('change', (e) => {
+                console.log('MAC labels toggled:', e.target.checked);
+                // The next marker update will use the new setting automatically
+            });
+        }
+
+        // Setup Firebase data source button
+        firebaseButton.addEventListener('click', () => {
+            if (activeDataSource !== 'firebase') {
+                // Update active state
+                activeDataSource = 'firebase';
+                firebaseButton.classList.add('active');
+                firehoseButton.classList.remove('active');
+                
+                // Cancel any existing streams
+                if (window.currentStream) {
+                    if (typeof window.currentStream.cancel === 'function') {
+                        window.currentStream.cancel();
+                    }
+                    window.currentStream = null;
+                }
+                
+                // Start new stream
+                fetchFirebaseStream(markerLayer);
+                
+                // Add haptic feedback on mobile
+                if (isMobile && 'vibrate' in navigator) {
+                    navigator.vibrate(30);
+                }
+            }
+        });
+        
+        // Setup Firehose API data source button
+        firehoseButton.addEventListener('click', () => {
+            if (activeDataSource !== 'firehose') {
+                // Update active state
+                activeDataSource = 'firehose';
+                firehoseButton.classList.add('active');
+                firebaseButton.classList.remove('active');
+                
+                // Cancel any existing streams
+                if (window.currentStream) {
+                    if (typeof window.currentStream.cancel === 'function') {
+                        window.currentStream.cancel();
+                    }
+                    window.currentStream = null;
+                }
+                
+                // Start new stream
+                fetchFirehoseStream(markerLayer);
+                
+                // Add haptic feedback on mobile
+                if (isMobile && 'vibrate' in navigator) {
+                    navigator.vibrate(30);
+                }
+            }
+        });
+    }
+    
+    // Firebase Stream Implementation
+    async function fetchFirebaseStream(markerLayer){
+        // Show loader and overlay when connecting
+        document.getElementById('loader').style.visibility = 'visible';
+        document.querySelector('.loading-overlay').style.display = 'block';
+
+        try {
+            // Use a shorter update interval on mobile to save battery
+            const mobileUpdateInterval = isMobile ? 10000 : updateInterval;
+            const effectiveInterval = params.get("interval") || mobileUpdateInterval;
+            
+            // Add network timeout for mobile connections
+            const fetchTimeout = isMobile ? 15000 : 30000;
+            
+            // Create timeout promise for fetch
+            const fetchPromise = fetch(
+                "https://tango-e01b8-default-rtdb.firebaseio.com/geolocation.json",
+                {
+                    headers: {
+                        "Cache-Control": "no-cache",
+                        "Connection": "keep-alive",
+                        "Accept": "text/event-stream"
+                    }
+                }
+            );
+            
+            // Create a timeout promise
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('Connection timed out')), fetchTimeout);
+            });
+            
+            // Race the fetch against the timeout
+            const response = await Promise.race([fetchPromise, timeoutPromise]);
+
+            // Hide loader and overlay once connected
+            document.getElementById('loader').style.visibility = 'hidden';
+            document.querySelector('.loading-overlay').style.display = 'none';
+            
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+
+            let deviceMap = new Map();
+            let reconnecting = false;
+
+            while (true) {
+                let buffer = "";
+
+                try {
+                    const { value, done } = await reader.read();
+                    if (done) {
+                        if (!reconnecting) {
+                            console.warn("Stream closed by Firebase. Reconnecting...");
+                            document.getElementById('loader').style.visibility = 'visible';
+                            reconnecting = true;
+                            setTimeout(() => {
+                                fetchFirebaseStream(markerLayer);
+                            }, 1000);
+                        }
+                        break;
+                    }
+                    
+                    buffer += decoder.decode(value, { stream: true });
+                    reconnecting = false;
+
+                    let dataLine = buffer.split("\n").find(line => line.startsWith("data: "));
+                    if (!dataLine) {
+                        continue;
+                    }
+                    
+                    let { path, data } = JSON.parse(dataLine.slice(5));
+                    
+                    if (path === "/") {
+                        /*
+                            event: put
+                            data: {"path":"/","data":{
+                            "0x1213":{"latitude":37.770228222581785,"longitude":-122.38718181071202,"name":""},
+                            "0xc15c":{"latitude":37.77022810404607,"longitude":-122.38717920224097}
+                            }}
+                        */
+                        Object.entries(data).forEach(([key, { latitude, longitude }]) => {
+                            if (key.startsWith("0x") && latitude !== undefined && longitude !== undefined) {
+                                deviceMap.set(key, [longitude, latitude]);
+                            }
+                        });
+                    } else if(path.startsWith("/")){
+                        /*
+                            event: put
+                            data: {"path":"/0x1213","data":{"latitude":37.77022810404607,"longitude":-122.38717920224097}
+                        */
+                        const id = path.slice(1);
+                        if (id.startsWith("0x") && data.latitude !== undefined && data.longitude !== undefined) {
+                            deviceMap.set(id, [data.longitude, data.latitude]);
+                        }
+                    } else {
+                        console.warn("Ignoring unknown data format ", buffer);
+                    }
+
+                    const now = Date.now();
+                    let diff = now - lastEventTime;
+                    
+                    // Update markers based on the interval
+                    if (diff >= effectiveInterval) {
+                        try {
+                            if(deviceMap && deviceMap.size > 0){
+                                // For mobile, limit the number of markers to improve performance
+                                let markersToShow = Array.from(deviceMap.values());
+                                if (isMobile && markersToShow.length > 10) {
+                                    markersToShow = markersToShow.slice(0, 10);
+                                }
+
+                                // Update default marker layer (Firebase doesn't use custom avatars)
+                                if (markerLayer.default) {
+                                    markerLayer.default.setMarkers(markersToShow);
+                                }
+                                deviceMap.clear();
+                            }
+                        } catch (error) {
+                            console.error(`Failed to update markers: ${error.message}`);
+                        }
+                        lastEventTime = now;
+                    }
+                    
+                } catch (parseError) {
+                    console.error(`Error processing data: ${parseError.message}`);
+                }
+                
+                buffer = "";
+            }
+        } catch (error) {
+            console.error("Error reading stream: ", error);
+            
+            // Show loader but with a message for the user
+            document.getElementById('loader').style.visibility = 'visible';
+            document.querySelector('.loading-overlay').style.display = 'block';
+            
+            // Create an error message element if it doesn't exist
+            if (!document.getElementById('error-message')) {
+                const errorMsg = document.createElement('div');
+                errorMsg.id = 'error-message';
+                errorMsg.style.position = 'fixed';
+                errorMsg.style.top = '50%';
+                errorMsg.style.left = '50%';
+                errorMsg.style.transform = 'translate(-50%, 60px)';
+                errorMsg.style.backgroundColor = 'rgba(255, 255, 255, 0.9)';
+                errorMsg.style.color = '#d32f2f';
+                errorMsg.style.padding = '12px 20px';
+                errorMsg.style.borderRadius = '5px';
+                errorMsg.style.fontWeight = 'bold';
+                errorMsg.style.zIndex = '100';
+                errorMsg.style.boxShadow = '0 2px 10px rgba(0,0,0,0.2)';
+                errorMsg.style.fontSize = '14px';
+                document.body.appendChild(errorMsg);
+            }
+            
+            // Set the error message based on the error type
+            const errorMsgElement = document.getElementById('error-message');
+            if (error.message === 'Connection timed out') {
+                errorMsgElement.innerText = 'Connection timed out. Reconnecting...';
+            } else if (error.name === 'AbortError') {
+                errorMsgElement.innerText = 'Connection aborted. Reconnecting...';
+            } else {
+                errorMsgElement.innerText = 'Connection error. Reconnecting...';
+            }
+            
+            // Show the error message
+            errorMsgElement.style.display = 'block';
+            
+            // Clear any existing reconnect timers
+            if (window.reconnectTimer) {
+                clearTimeout(window.reconnectTimer);
+            }
+            
+            // Attempt to reconnect after a delay
+            const reconnectDelay = isMobile ? 8000 : 5000; // Longer delay on mobile
+            window.reconnectTimer = setTimeout(() => {
+                if (document.getElementById('error-message')) {
+                    document.getElementById('error-message').style.display = 'none';
+                }
+                if (activeDataSource === 'firebase') {
+                    fetchFirebaseStream(markerLayer);
+                } else {
+                    fetchFirehoseStream(markerLayer);
+                }
+            }, reconnectDelay);
+        }
+        
+        // Add event listeners for online/offline status
+        window.addEventListener('online', () => {
+            if (document.getElementById('error-message')) {
+                document.getElementById('error-message').style.display = 'none';
+            }
+            // Restart the appropriate stream based on active source
+            if (activeDataSource === 'firebase') {
+                fetchFirebaseStream(markerLayer);
+            } else {
+                fetchFirehoseStream(markerLayer);
+            }
+        });
+        
+        window.addEventListener('offline', () => {
+            // Show offline message
+            if (!document.getElementById('error-message')) {
+                const errorMsg = document.createElement('div');
+                errorMsg.id = 'error-message';
+                errorMsg.style.position = 'fixed';
+                errorMsg.style.top = '50%';
+                errorMsg.style.left = '50%';
+                errorMsg.style.transform = 'translate(-50%, 60px)';
+                errorMsg.style.backgroundColor = 'rgba(255, 255, 255, 0.9)';
+                errorMsg.style.color = '#d32f2f';
+                errorMsg.style.padding = '12px 20px';
+                errorMsg.style.borderRadius = '5px';
+                errorMsg.style.fontWeight = 'bold';
+                errorMsg.style.zIndex = '100';
+                errorMsg.style.boxShadow = '0 2px 10px rgba(0,0,0,0.2)';
+                errorMsg.style.fontSize = '14px';
+                document.body.appendChild(errorMsg);
+            }
+            
+            const errorMsgElement = document.getElementById('error-message');
+            errorMsgElement.innerText = 'You are offline. Reconnecting when network is available...';
+            errorMsgElement.style.display = 'block';
+        });
+    }
+    
+    // Firehose API Implementation
+    async function fetchFirehoseStream(markerLayer) {
+        console.log('🔥 Connecting to Firehose API...');
+
+        // Show loader and overlay when connecting
+        document.getElementById('loader').style.visibility = 'visible';
+        document.querySelector('.loading-overlay').style.display = 'block';
+
+        try {
+            // Store the current stream cancellation token for cleanup
+            window.currentStream = { cancel: null };
+
+            // Setup the AbortController for cancellation
+            const controller = new AbortController();
+            window.currentStream.cancel = () => {
+                console.log('Cancelling Firehose stream...');
+                controller.abort();
+            };
+
+            // Get the mobile-appropriate update interval
+            const mobileUpdateInterval = isMobile ? 10000 : firehoseConfig.updateInterval;
+            const effectiveInterval = params.get("interval") || mobileUpdateInterval;
+
+            // Create headers (API key is handled by proxy)
+            const headers = {
+                'Accept': 'application/json'
+            };
+
+            // Connect to the Firehose API (streaming endpoint)
+            const response = await fetch(firehoseConfig.endpoint, {
+                method: 'GET',
+                headers: headers,
+                signal: controller.signal
+            });
+
+            // Check if the response is valid
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Firehose API error:', response.status, errorText);
+                throw new Error(`API error: ${response.status} ${response.statusText} - ${errorText}`);
+            }
+
+            // Hide loader once connected
+            document.getElementById('loader').style.visibility = 'hidden';
+            document.querySelector('.loading-overlay').style.display = 'none';
+
+            console.log('Successfully connected to Firehose API! Starting to read stream...');
+            
+            // If the API supports streaming responses
+            if (response.body) {
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+
+                // Store device positions with smoothing history
+                let deviceMap = new Map(); // MAC -> { coords: [lng, lat], history: [[lng, lat], ...] }
+                let lastEventTime = 0;
+                
+                // Read the stream
+                while (true) {
+                    // Read a chunk from the stream
+                    const { done, value } = await reader.read();
+                    if (done) {
+                        console.log('Firehose stream closed');
+                        break;
+                    }
+                    
+                    // Convert the chunk to text
+                    const chunk = decoder.decode(value, { stream: true });
+
+                    try {
+                        // Firehose API returns newline-delimited JSON (NDJSON)
+                        // Each line is a separate JSON object
+                        const lines = chunk.split('\n').filter(line => line.trim());
+
+                        lines.forEach(line => {
+                            try {
+                                const event = JSON.parse(line);
+
+                                // Process IOT_TELEMETRY events
+                                if (event.eventType === 'IOT_TELEMETRY' && event.iotTelemetry) {
+                                    const telemetry = event.iotTelemetry;
+                                    const deviceInfo = telemetry.deviceInfo || {};
+                                    const position = telemetry.detectedPosition || {};
+                                    const location = telemetry.location || {};
+
+                                    const macAddress = deviceInfo.deviceMacAddress?.toLowerCase();
+                                    const { latitude, longitude } = position;
+                                    const locationName = location.name || '';
+
+                                    // Filter by MAC address prefix if specified
+                                    if (firehoseConfig.filterMacPrefix) {
+                                        if (!macAddress || !macAddress.startsWith(firehoseConfig.filterMacPrefix.toLowerCase())) {
+                                            return;
+                                        }
+                                    }
+
+                                    // Add device to map if it has valid coordinates
+                                    if (macAddress && latitude && longitude) {
+                                        // If single device mode, only track the first device we see
+                                        if (firehoseConfig.singleDevice && deviceMap.size > 0 && !deviceMap.has(macAddress)) {
+                                            return; // Skip this device, already tracking one
+                                        }
+
+                                        // Get or create device entry
+                                        let device = deviceMap.get(macAddress) || { history: [] };
+
+                                        // Add new position to history
+                                        device.history.push([longitude, latitude]);
+
+                                        // Keep only last 5 positions for smoothing
+                                        if (device.history.length > 5) {
+                                            device.history.shift();
+                                        }
+
+                                        // Calculate smoothed position (average of history)
+                                        const avgLng = device.history.reduce((sum, pos) => sum + pos[0], 0) / device.history.length;
+                                        const avgLat = device.history.reduce((sum, pos) => sum + pos[1], 0) / device.history.length;
+
+                                        device.coords = [avgLng, avgLat];
+                                        device.mac = macAddress;
+
+                                        deviceMap.set(macAddress, device);
+                                    }
+                                }
+                            } catch (lineError) {
+                                // Skip malformed lines
+                                console.debug('Skipping malformed line:', lineError.message);
+                            }
+                        });
+
+                        // Update markers based on the update interval
+                        const now = Date.now();
+                        const diff = now - lastEventTime;
+
+                        if (diff >= effectiveInterval) {
+                            if(deviceMap.size > 0) {
+                                // Check if MAC labels should be shown
+                                const showLabels = document.getElementById('show-mac-labels')?.checked;
+
+                                // Extract device data
+                                let devices = Array.from(deviceMap.values());
+
+                                // If single device mode, only show the first device
+                                if (firehoseConfig.singleDevice) {
+                                    devices = devices.slice(0, 1);
+                                } else if (isMobile && devices.length > 10) {
+                                    // For mobile, limit the number of markers to improve performance
+                                    devices = devices.slice(0, 10);
+                                }
+
+                                // Separate devices into custom avatar and default groups
+                                const customDevices = {};
+                                const defaultDevices = [];
+
+                                devices.forEach(device => {
+                                    if (markerLayer.custom && markerLayer.custom[device.mac]) {
+                                        // Device has custom avatar
+                                        if (!customDevices[device.mac]) {
+                                            customDevices[device.mac] = [];
+                                        }
+                                        customDevices[device.mac].push(device.coords);
+                                    } else {
+                                        // Use default blue dot
+                                        defaultDevices.push(device.coords);
+                                    }
+                                });
+
+                                // Update default marker layer
+                                if (markerLayer.default) {
+                                    markerLayer.default.setMarkers(defaultDevices);
+                                }
+
+                                // Update custom marker layers
+                                Object.entries(customDevices).forEach(([mac, coords]) => {
+                                    if (markerLayer.custom && markerLayer.custom[mac]) {
+                                        markerLayer.custom[mac].setMarkers(coords);
+                                    }
+                                });
+
+                                // Clear markers for custom layers that have no devices
+                                if (markerLayer.custom) {
+                                    Object.keys(markerLayer.custom).forEach(mac => {
+                                        if (!customDevices[mac]) {
+                                            markerLayer.custom[mac].setMarkers([]);
+                                        }
+                                    });
+                                }
+
+                                // Always log device MACs for visibility
+                                const macList = devices.map(d => d.mac).join(', ');
+                                console.log(`✅ ${devices.length} device(s) on map: ${macList}`);
+
+                                // Log detailed coordinates when labels are enabled
+                                if (showLabels) {
+                                    devices.forEach(device => {
+                                        console.log(`   📍 ${device.mac}: [${device.coords[0].toFixed(4)}, ${device.coords[1].toFixed(4)}]`);
+                                    });
+                                }
+                            }
+
+                            lastEventTime = now;
+                        }
+                    } catch (error) {
+                        console.error('Error processing Firehose data:', error);
+                    }
+                }
+            } else {
+                // If the API doesn't support streaming, use polling
+                console.log('Using polling mode for Firehose API');
+                
+                let deviceMap = new Map();
+                let lastEventTime = 0;
+                let polling = true;
+                
+                // Store cancellation method
+                window.currentStream.cancel = () => { polling = false; };
+                
+                while (polling) {
+                    try {
+                        // Fetch events in batches
+                        const eventResponse = await fetch(`${firehoseConfig.endpoint}?subscriptionId=${firehoseConfig.subscriptionId}&batchSize=${firehoseConfig.batchSize}`, {
+                            method: 'GET',
+                            headers: headers,
+                            signal: controller.signal
+                        });
+                        
+                        if (!eventResponse.ok) {
+                            throw new Error(`API error: ${eventResponse.status} ${eventResponse.statusText}`);
+                        }
+                        
+                        // Parse the JSON response
+                        const events = await eventResponse.json();
+                        
+                        // Process location events
+                        if (Array.isArray(events)) {
+                            events.forEach(event => {
+                                // Check if this is a location event
+                                if (event.type === 'LOCATION_UPDATE' && event.data) {
+                                    const deviceId = event.data.deviceId || event.data.macAddress || event.data.id;
+                                    const { latitude, longitude, floor } = event.data;
+                                    
+                                    // Skip if the floor doesn't match current floor
+                                    const currentFloor = richMap.getFloor ? richMap.getFloor() : _floor;
+                                    if (floor !== undefined && floor !== currentFloor) {
+                                        return;
+                                    }
+                                    
+                                    if (latitude !== undefined && longitude !== undefined) {
+                                        deviceMap.set(deviceId, [longitude, latitude]);
+                                    }
+                                }
+                            });
+                        }
+                        
+                        // Update markers
+                        if(deviceMap.size > 0) {
+                            // For mobile, limit the number of markers to improve performance
+                            let markersToShow = Array.from(deviceMap.values());
+                            if (isMobile && markersToShow.length > 10) {
+                                markersToShow = markersToShow.slice(0, 10);
+                            }
+
+                            // Update default marker layer (polling mode doesn't use custom avatars)
+                            if (markerLayer.default) {
+                                markerLayer.default.setMarkers(markersToShow);
+                            }
+                            deviceMap.clear();
+                        }
+                        
+                        // Wait before polling again
+                        await new Promise(resolve => setTimeout(resolve, effectiveInterval));
+                    } catch (error) {
+                        if (error.name === 'AbortError') {
+                            console.log('Firehose polling cancelled');
+                            break;
+                        }
+                        
+                        console.error('Error polling Firehose API:', error);
+                        await new Promise(resolve => setTimeout(resolve, 5000));
+                    }
+                }
+            }
+        } catch (error) {
+            console.error("Error connecting to Firehose API:", error);
+            
+            // Show error message
+            document.getElementById('loader').style.visibility = 'visible';
+            document.querySelector('.loading-overlay').style.display = 'block';
+            
+            // Create an error message element if it doesn't exist
+            if (!document.getElementById('error-message')) {
+                const errorMsg = document.createElement('div');
+                errorMsg.id = 'error-message';
+                errorMsg.style.position = 'fixed';
+                errorMsg.style.top = '50%';
+                errorMsg.style.left = '50%';
+                errorMsg.style.transform = 'translate(-50%, 60px)';
+                errorMsg.style.backgroundColor = 'rgba(255, 255, 255, 0.9)';
+                errorMsg.style.color = '#d32f2f';
+                errorMsg.style.padding = '12px 20px';
+                errorMsg.style.borderRadius = '5px';
+                errorMsg.style.fontWeight = 'bold';
+                errorMsg.style.zIndex = '100';
+                errorMsg.style.boxShadow = '0 2px 10px rgba(0,0,0,0.2)';
+                errorMsg.style.fontSize = '14px';
+                document.body.appendChild(errorMsg);
+            }
+            
+            // Set the error message
+            const errorMsgElement = document.getElementById('error-message');
+            if (error.name === 'AbortError') {
+                errorMsgElement.innerText = 'Connection to Firehose API cancelled';
+            } else {
+                errorMsgElement.innerText = `Firehose API Error: ${error.message}. Reconnecting...`;
+            }
+            
+            errorMsgElement.style.display = 'block';
+            
+            // Try to reconnect after delay (unless aborted)
+            if (error.name !== 'AbortError') {
+                setTimeout(() => {
+                    if (document.getElementById('error-message')) {
+                        document.getElementById('error-message').style.display = 'none';
+                    }
+                    fetchFirehoseStream(markerLayer);
+                }, 8000);
+            }
+        }
+    }
+
+    // We now know the floor change method is changeFloor, so no need for discovery code
+
+    // Add a standalone floor selector if the dynamic one doesn't show up
+    setTimeout(() => {
+        if (!document.querySelector('.floor-selector') || document.querySelector('.floor-selector').offsetHeight === 0) {
+            console.log('Adding fallback floor selector');
+            
+            // Create a simple standalone floor selector
+            const fallbackSelector = document.createElement('div');
+            fallbackSelector.className = 'floor-selector';
+            fallbackSelector.id = 'fallback-floor-selector';
+            fallbackSelector.style.display = 'flex';
+            
+            // Add a label
+            const label = document.createElement('div');
+            label.className = 'floor-selector-label';
+            label.innerText = 'FLOOR';
+            fallbackSelector.appendChild(label);
+            
+            // Add buttons for floors 1-5
+            for (let floor = 5; floor >= 1; floor--) {
+                const button = document.createElement('button');
+                button.className = 'floor-selector-button';
+                button.innerText = floor;
+                
+                // Make floor 2 (default) active
+                if (floor === _floor) {
+                    button.classList.add('active');
+                }
+                
+                button.addEventListener('click', () => {
+                    try {
+                        // Ensure the floor is a valid number value
+                        const floorNum = parseInt(floor, 10);
+                        
+                        // Now we know the correct method is changeFloor, just use it directly
+                        if (typeof richMap.changeFloor === 'function') {
+                            // Add a small delay to prevent rapid floor changes 
+                            // that might cause the rendering errors
+                            setTimeout(() => {
+                                try {
+                                    // Call the floor change method directly
+                                    richMap.changeFloor(floorNum);
+                                } catch (e) {
+                                    // Silently handle errors to prevent console spam
+                                    // The errors are related to the map library's internal rendering
+                                }
+                            }, 200);
+                        }
+                        
+                        // Update visual state immediately for responsiveness
+                        document.querySelectorAll('.floor-selector-button').forEach(btn => {
+                            btn.classList.remove('active');
+                        });
+                        button.classList.add('active');
+                        
+                        // Add haptic feedback on mobile
+                        if (isMobile && 'vibrate' in navigator) {
+                            navigator.vibrate(30);
+                        }
+                    } catch (error) {
+                        console.error("Error in fallback floor change:", error);
+                    }
+                });
+                
+                fallbackSelector.appendChild(button);
+            }
+            
+            document.body.appendChild(fallbackSelector);
+        }
+    }, 3000); // Check after 3 seconds
+    
+    // Handle mobile-specific events
+    if (isMobile) {
+        // Handle orientation changes
+        window.addEventListener('orientationchange', () => {
+            // Hide any error messages during orientation change
+            if (document.getElementById('error-message')) {
+                document.getElementById('error-message').style.display = 'none';
+            }
+            
+            // Add small timeout to allow the browser to complete the orientation change
+            setTimeout(() => {
+                richMap.resize(); // Force map to resize after orientation change
+            }, 300);
+        });
+        
+        // Add double-tap handler to reset view (for mobile only)
+        let lastTap = 0;
+        document.getElementById('map').addEventListener('click', (e) => {
+            const currentTime = new Date().getTime();
+            const tapLength = currentTime - lastTap;
+            
+            if (tapLength < 300 && tapLength > 0) {
+                // Double tap detected
+                e.preventDefault();
+                
+                // Reset view to initial position
+                richMap.flyTo({
+                    center: [-122.38668892596415, 37.77055364042427],
+                    zoom: 19,
+                    pitch: 10,
+                    bearing: -50
+                });
+            }
+            
+            lastTap = currentTime;
+        });
+        
+        // Add vibration feedback for button presses if supported
+        const buttons = document.querySelectorAll('button');
+        if ('vibrate' in navigator) {
+            buttons.forEach(button => {
+                button.addEventListener('click', () => {
+                    navigator.vibrate(30); // Short vibration for feedback
+                });
+            });
+        }
+    }
+    
+    // Add error handling for the map itself
+    richMap.listen(RichMapEvent.ON_ERROR, function(error) {
+        console.error("Map error:", error);
+        
+        // Create an error message if needed
+        if (!document.getElementById('map-error')) {
+            const errorBox = document.createElement('div');
+            errorBox.id = 'map-error';
+            errorBox.style.position = 'fixed';
+            errorBox.style.bottom = '20px';
+            errorBox.style.left = '50%';
+            errorBox.style.transform = 'translateX(-50%)';
+            errorBox.style.backgroundColor = 'rgba(255,255,255,0.9)';
+            errorBox.style.color = '#d32f2f';
+            errorBox.style.padding = '8px 16px';
+            errorBox.style.borderRadius = '4px';
+            errorBox.style.zIndex = '1000';
+            errorBox.style.boxShadow = '0 2px 5px rgba(0,0,0,0.2)';
+            errorBox.style.maxWidth = '80%';
+            errorBox.style.textAlign = 'center';
+            errorBox.style.display = 'none';
+            document.body.appendChild(errorBox);
+        }
+        
+        // Display the error
+        const mapError = document.getElementById('map-error');
+        mapError.innerText = "Map error occurred. Please reload the page.";
+        mapError.style.display = 'block';
+        
+        // Hide after 5 seconds
+        setTimeout(() => {
+            mapError.style.display = 'none';
+        }, 5000);
+    });
+    
+    // Prevent browser bounce/elastic scrolling on iOS Safari
+    document.addEventListener('touchmove', function(e) {
+        if (e.touches.length > 1) {
+            e.preventDefault();
+        }
+    }, { passive: false });
+</script>
+</body>
+
+</html>

@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Firehose API Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        #log {
+            background: #000;
+            color: #0f0;
+            padding: 20px;
+            border-radius: 5px;
+            height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            margin: 10px 5px;
+            cursor: pointer;
+        }
+        .success { color: #0f0; }
+        .error { color: #f00; }
+        .info { color: #0ff; }
+    </style>
+</head>
+<body>
+    <h1>Cisco Spaces Firehose API Test</h1>
+    <button onclick="testConnection()">Test Connection</button>
+    <button onclick="clearLog()">Clear Log</button>
+    <div id="log"></div>
+
+    <script>
+        const API_KEY = '9981B867E2B0456CB1F1909BD617982C';
+        const ENDPOINT = 'http://localhost:8081/firehose'; // Using CORS proxy
+        const FILTER_MAC_PREFIX = null; // Show ALL devices (set to 'fc' to filter)
+
+        let reader = null;
+        let controller = null;
+
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toISOString().substring(11, 23);
+            const className = type;
+            logDiv.innerHTML += `<div class="${className}">[${timestamp}] ${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+
+        async function testConnection() {
+            log('=== TESTING FIREHOSE API ===', 'info');
+            log(`Endpoint: ${ENDPOINT}`, 'info');
+            log(`API Key: ${API_KEY.substring(0, 8)}...`, 'info');
+            log(`Filter: ${FILTER_MAC_PREFIX ? `MAC addresses starting with '${FILTER_MAC_PREFIX}'` : 'ALL devices (no filter)'}`, 'info');
+
+            // Cancel existing connection
+            if (controller) {
+                log('Cancelling existing connection...', 'info');
+                controller.abort();
+            }
+
+            controller = new AbortController();
+
+            try {
+                log('Connecting to Firehose API...', 'info');
+
+                const response = await fetch(ENDPOINT, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json'
+                    },
+                    signal: controller.signal
+                });
+
+                log(`Response: ${response.status} ${response.statusText}`, response.ok ? 'success' : 'error');
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    log(`Error body: ${errorText}`, 'error');
+                    return;
+                }
+
+                log('Connected! Reading stream...', 'success');
+
+                reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let eventCount = 0;
+                let deviceCount = 0;
+
+                while (true) {
+                    const { done, value } = await reader.read();
+
+                    if (done) {
+                        log('Stream closed by server', 'info');
+                        break;
+                    }
+
+                    const chunk = decoder.decode(value, { stream: true });
+                    const lines = chunk.split('\n').filter(line => line.trim());
+
+                    lines.forEach(line => {
+                        try {
+                            const event = JSON.parse(line);
+                            eventCount++;
+
+                            if (event.eventType === 'KEEP_ALIVE') {
+                                log(`Keep-alive received (${eventCount} events total)`, 'info');
+                            } else if (event.eventType === 'IOT_TELEMETRY' && event.iotTelemetry) {
+                                const telemetry = event.iotTelemetry;
+                                const deviceInfo = telemetry.deviceInfo || {};
+                                const position = telemetry.detectedPosition || {};
+                                const location = telemetry.location || {};
+
+                                const mac = deviceInfo.deviceMacAddress?.toLowerCase();
+                                const lat = position.latitude;
+                                const lng = position.longitude;
+                                const locationName = location.name || 'Unknown';
+
+                                // Filter by MAC address prefix
+                                if (!FILTER_MAC_PREFIX || (mac && mac.startsWith(FILTER_MAC_PREFIX.toLowerCase()))) {
+                                    deviceCount++;
+                                    log(`📍 Device: ${mac} @ ${locationName} [${lng}, ${lat}]`, 'success');
+                                }
+                            }
+                        } catch (parseError) {
+                            // Skip malformed lines
+                        }
+                    });
+                }
+
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    log('Connection cancelled by user', 'info');
+                } else {
+                    log(`ERROR: ${error.message}`, 'error');
+                    console.error(error);
+                }
+            }
+        }
+    </script>
+</body>
+</html>

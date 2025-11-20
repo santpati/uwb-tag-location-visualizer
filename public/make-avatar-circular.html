@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Make Avatar Circular</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            text-align: center;
+        }
+        canvas {
+            border: 2px solid #ccc;
+            margin: 20px 0;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #1073b4;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+        button:hover {
+            background-color: #0a5a8a;
+        }
+    </style>
+</head>
+<body>
+    <h1>Make Avatar Circular</h1>
+    <p>This will automatically process the avatar image</p>
+    <canvas id="canvas"></canvas>
+    <br>
+    <button id="download">Download Circular Avatar</button>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const size = 200;
+
+        // Set canvas size
+        canvas.width = size;
+        canvas.height = size;
+
+        // Load the avatar image
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = function() {
+            // Enable anti-aliasing
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+
+            // Draw white circular background
+            const centerX = size / 2;
+            const centerY = size / 2;
+            const radius = size / 2 - 4; // Leave room for border
+
+            // Draw outer white border circle
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, size / 2, 0, Math.PI * 2);
+            ctx.fillStyle = 'white';
+            ctx.fill();
+
+            // Create circular clipping path for the image
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+            ctx.closePath();
+            ctx.clip();
+
+            // Calculate dimensions to fill the circle (cover, not contain)
+            const imageAspect = img.width / img.height;
+            let drawWidth, drawHeight, drawX, drawY;
+
+            if (imageAspect > 1) {
+                // Image is wider than tall
+                drawHeight = size;
+                drawWidth = size * imageAspect;
+                drawX = -(drawWidth - size) / 2;
+                drawY = 0;
+            } else {
+                // Image is taller than wide or square
+                drawWidth = size;
+                drawHeight = size / imageAspect;
+                drawX = 0;
+                drawY = -(drawHeight - size) / 2;
+            }
+
+            // Draw the image
+            ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
+            ctx.restore();
+
+            console.log('✅ Circular avatar created!');
+        };
+
+        img.onerror = function() {
+            alert('Failed to load image. Make sure avatar-fc589a1e394f.jpeg exists in the public folder.');
+        };
+
+        img.src = 'avatar-fc589a1e394f.jpeg';
+
+        // Download button
+        document.getElementById('download').addEventListener('click', function() {
+            canvas.toBlob(function(blob) {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'avatar-fc589a1e394f-circular.png';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                alert('Circular avatar downloaded! Now move it to the public folder.');
+            });
+        });
+    </script>
+</body>
+</html>
