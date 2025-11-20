@@ -448,7 +448,8 @@
     
     // Firehose API configuration
     const firehoseConfig = {
-        endpoint: "http://localhost:8081/firehose", // Using CORS proxy (see proxy-server.js)
+        //endpoint: "http://localhost:8081/firehose", // Using CORS proxy (see proxy-server.js)
+        endpoint: "/firehose", // Using CORS proxy (see proxy-server.js)
         apiKey: "9981B867E2B0456CB1F1909BD617982C", // QA environment API key
         updateInterval: 10000, // ms (update markers every 10 seconds)
         filterMacPrefix: "fc", // Only show devices with MAC starting with "fc"
