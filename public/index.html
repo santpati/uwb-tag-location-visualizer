@@ -452,7 +452,7 @@
         endpoint: "/firehose", // Using CORS proxy (see proxy-server.js)
         apiKey: "9981B867E2B0456CB1F1909BD617982C", // QA environment API key
         updateInterval: 10000, // ms (update markers every 10 seconds)
-        filterMacPrefix: "fc", // Only show devices with MAC starting with "fc"
+        filterMacPrefix: ""fc:58:9a:1e:39:", // Only show devices with MAC starting with "fc"
         singleDevice: false, // Show all devices matching the filter
         eventTypes: ["IOT_TELEMETRY"], // Firehose uses IOT_TELEMETRY events for location data
         // Custom avatars for specific MAC addresses
